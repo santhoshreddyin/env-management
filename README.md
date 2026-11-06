@@ -12,6 +12,9 @@ Two tools in one app:
 | Backend | Python, FastAPI, SQLAlchemy 2 + Alembic, Pydantic, openpyxl |
 | Storage | PostgreSQL (SQLite for local / pilot) |
 | Tests / CI | pytest, Playwright, GitHub Actions |
+| Hosting | Cloudflare Pages (frontend) · Render (backend) · Supabase (PostgreSQL) |
+
+**Deployment:** `qa` branch → QA, `main` branch → production, via GitHub Actions. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Quick start
 
@@ -139,7 +142,7 @@ cd frontend && npm run typecheck && npx playwright test  # e2e: starts a seeded 
 ```
 
 CI (`.github/workflows/ci.yml`) runs pytest, a migrate-and-seed against PostgreSQL, the frontend build and
-Playwright.
+Playwright. Pushes to `qa` / `main` run the same checks and then deploy (`.github/workflows/deploy.yml`).
 
 ## Decisions taken on the open questions
 

@@ -1,0 +1,55 @@
+# Render Blueprint — two backend services, one per environment.
+# Deploys are triggered by GitHub Actions (deploy hooks), so autoDeploy is off.
+# Secrets marked `sync: false` are entered once in the Render dashboard.
+services:
+  - type: web
+    name: env-management-api-qa
+    runtime: python
+    plan: free
+    branch: qa
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: APP_ENV
+        value: qa
+      - key: RUN_MIGRATIONS # migrations run in GitHub Actions before each deploy
+        value: "false"
+      - key: AUTH_MODE # "dev" = no login; see docs/DEPLOYMENT.md before exposing real data
+        sync: false
+      - key: DATABASE_URL # Supabase QA project connection string
+        sync: false
+      - key: CORS_ORIGINS # e.g. https://qa.env-management.pages.dev
+        sync: false
+      - key: CORS_ORIGIN_REGEX # optional
+        sync: false
+
+  - type: web
+    name: env-management-api-prod
+    runtime: python
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: APP_ENV
+        value: production
+      - key: RUN_MIGRATIONS # migrations run in GitHub Actions before each deploy
+        value: "false"
+      - key: AUTH_MODE # "dev" = no login; see docs/DEPLOYMENT.md before exposing real data
+        sync: false
+      - key: DATABASE_URL # Supabase production project connection string
+        sync: false
+      - key: CORS_ORIGINS # e.g. https://env-management.pages.dev
+        sync: false
+      - key: CORS_ORIGIN_REGEX # optional
+        sync: false
