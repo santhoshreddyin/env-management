@@ -23,6 +23,8 @@ def session_factory():
 @pytest.fixture()
 def client(session_factory, monkeypatch):
     monkeypatch.setattr(settings, "run_migrations", False)
+    monkeypatch.setattr(settings, "scheduler_enabled", False)
+    monkeypatch.setattr(settings, "webhooks_enabled", False)
     monkeypatch.setattr(settings, "auth_mode", "dev")
     monkeypatch.setattr(settings, "dev_roles", ["viewer", "maintainer"])
 

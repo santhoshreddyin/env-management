@@ -38,7 +38,10 @@ def test_variable_crud_and_export(client):
     r = client.patch(f"{base}/{var['id']}", json={"value": "db.internal"})
     assert r.json()["value"] == "db.internal"
 
+    # SEC-03: secrets are excluded from exports unless explicitly requested (env_manager+, audited)
     export = client.get(f"{base}/export/dotenv").text
+    assert export == '# API_KEY is secret and was excluded\nDB_HOST="db.internal"\n'
+    export = client.get(f"{base}/export/dotenv?include_secrets=true").text
     assert export == 'API_KEY="se\\"cret"\nDB_HOST="db.internal"\n'
 
     assert client.delete(f"{base}/{var['id']}").status_code == 204

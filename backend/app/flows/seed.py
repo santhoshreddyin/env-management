@@ -2,6 +2,7 @@
 
     python -m app.flows.seed                  # seed if the dataset is empty
     python -m app.flows.seed --force          # replace the current dataset
+    python -m app.flows.seed --with-environments  # also load the demo environment inventory
     python -m app.flows.seed --write-xlsx sample.xlsx [--template]
 """
 
@@ -21,6 +22,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--force", action="store_true", help="replace existing data")
     parser.add_argument("--write-xlsx", metavar="PATH", help="write a workbook instead of seeding")
+    parser.add_argument("--with-environments", action="store_true",
+                        help="also load the demo environment inventory if no environments exist")
     parser.add_argument("--template", action="store_true", help="with --write-xlsx: write an empty template")
     args = parser.parse_args()
 
@@ -33,11 +36,22 @@ def main() -> None:
     with SessionLocal() as db:
         if load_dataset(db).systems and not args.force:
             print("Dataset not empty; use --force to replace it.")
-            return
-        ds = sample_dataset()
-        v = commit_dataset(db, ds, user=User("seed"), source="seed", summary="Sample dataset",
-                           audit_action="seed", entity_type="dataset")
-        print(f"Seeded sample dataset as version {v.id}: {ds.counts()}")
+        else:
+            ds = sample_dataset()
+            v = commit_dataset(db, ds, user=User("seed"), source="seed", summary="Sample dataset",
+                               audit_action="seed", entity_type="dataset")
+            print(f"Seeded sample dataset as version {v.id}: {ds.counts()}")
+        if args.with_environments:
+            from sqlalchemy import func, select
+
+            from app.models import Environment
+            from app.platform.sample import seed_platform
+
+            if db.scalar(select(func.count()).select_from(Environment)):
+                print("Environments already exist; demo inventory not loaded.")
+            else:
+                print(f"Seeded demo environments: {seed_platform(db)}")
+                db.commit()
 
 
 if __name__ == "__main__":

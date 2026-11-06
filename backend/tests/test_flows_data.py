@@ -107,7 +107,7 @@ def test_roles(seeded, monkeypatch):
     assert seeded.get("/api/graph").status_code == 401
     hdrs = {"X-Forwarded-User": "alice", "X-Forwarded-Groups": "staff,integration-maintainers"}
     me = seeded.get("/api/me", headers=hdrs).json()
-    assert me == {"name": "alice", "roles": ["maintainer", "viewer"]}
+    assert me == {"name": "alice", "roles": ["admin", "maintainer", "viewer"]}
     viewer = seeded.get("/api/me", headers={"X-Forwarded-User": "bob"}).json()
     assert viewer["roles"] == ["viewer"]
 
