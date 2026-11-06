@@ -254,6 +254,16 @@ def test_calendar_and_ics(demo):
     assert r["affected_bookings"][0]["project"] == "Claims Modernisation R3"
     ics = demo.get("/api/calendar.ics").text
     assert ics.startswith("BEGIN:VCALENDAR") and "Quarter-end change freeze" in ics
+    from app.config import settings
+
+    tok = demo.post("/api/admin/tokens", json={"name": "outlook", "role": "viewer"}).json()["token"]
+    settings.auth_mode = "header"
+    try:
+        assert demo.get("/api/calendar.ics").status_code == 401
+        assert demo.get(f"/api/calendar.ics?api_token={tok}").status_code == 200
+        assert demo.get(f"/api/environments?api_token={tok}").status_code == 401  # only for feeds/commands
+    finally:
+        settings.auth_mode = "dev"
 
 
 # --- Configuration (CFG-*, SEC-*) -------------------------------------------------------
@@ -500,3 +510,18 @@ def test_webhooks_delivered_after_commit(demo, monkeypatch):
     notify.drain()
     assert sent and sent[0][1]["event"] == "environment.created" and sent[0][0]["kind"] == "slack"
     assert notify.webhook_body("slack", sent[0][1]) == {"text": "Environment HOOKED created"}
+
+
+def test_scheduler_tick(demo, session_factory, monkeypatch):
+    """BKG-05/09, CHG-06, SEC-04: background job releases bookings and raises SLA / rotation alerts once."""
+    from app.models import Notification
+    from app.platform import scheduler
+
+    monkeypatch.setattr(scheduler, "SessionLocal", session_factory)
+    first = scheduler.tick()
+    assert first["sla"] == 3 and first["rotation"] >= 1
+    second = scheduler.tick()
+    assert second["sla"] == 0 and second["rotation"] == 0
+    with session_factory() as db:
+        events = {n.event for n in db.query(Notification)}
+    assert {"issue.sla_breached", "secret.rotation_due"} <= events

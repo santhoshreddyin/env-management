@@ -35,6 +35,8 @@ MAINTAINER = "maintainer"
 LEVELS = {VIEWER: 1, BOOKER: 2, CONTRIBUTOR: 3, ENV_MANAGER: 4, ADMIN: 5, MAINTAINER: 5}
 ROLES = [VIEWER, BOOKER, CONTRIBUTOR, ENV_MANAGER, ADMIN]
 SCOPE_TYPES = ["global", "environment", "programme", "region", "family"]
+# Endpoints that also accept `?api_token=` (subscribed calendars, chat slash commands).
+QUERY_TOKEN_PATHS = ("/calendar.ics", "/chatops/command")
 
 
 @dataclass
@@ -157,6 +159,9 @@ def _group_roles(groups: set[str]) -> set[str]:
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     auth = request.headers.get("Authorization", "")
     token = auth[7:].strip() if auth.lower().startswith("bearer ") else request.headers.get("X-API-Token", "")
+    if not token and request.url.path.endswith(QUERY_TOKEN_PATHS):
+        # Calendar clients and Slack slash commands cannot send headers.
+        token = request.query_params.get("api_token", "")
     if token.startswith("emt_"):
         return _token_user(token, db)
 

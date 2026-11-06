@@ -7,6 +7,7 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public issues: ValidationIssue[] = [],
+    public detail: unknown = null,
   ) {
     super(message);
   }
@@ -39,19 +40,22 @@ export async function request<T>(path: string, { method = 'GET', params, body, f
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`;
     let issues: ValidationIssue[] = [];
+    let raw: unknown = null;
     try {
       const data = await res.json();
       const detail = data.detail;
+      raw = detail;
       if (typeof detail === 'string') message = detail;
       else if (Array.isArray(detail)) message = detail.map((d: { msg: string }) => d.msg).join(', ');
       else if (detail && typeof detail === 'object') {
         message = detail.message ?? message;
         issues = detail.issues ?? [];
+        if (!detail.message && Array.isArray(detail.errors)) message = detail.errors.join('; ');
       }
     } catch {
       /* non-JSON error body */
     }
-    throw new ApiError(message, res.status, issues);
+    throw new ApiError(message, res.status, issues, raw);
   }
   return (res.status === 204 ? null : await res.json()) as T;
 }

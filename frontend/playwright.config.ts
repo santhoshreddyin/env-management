@@ -21,7 +21,7 @@ export default defineConfig({
     {
       command:
         `cd ../backend && rm -f e2e.db && export DATABASE_URL=sqlite:///./e2e.db && ` +
-        `${PY} -m app.flows.seed && ${PY} -m uvicorn app.main:app --port ${API_PORT}`,
+        `${PY} -m app.flows.seed --with-environments && ${PY} -m uvicorn app.main:app --port ${API_PORT}`,
       url: `http://localhost:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

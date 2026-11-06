@@ -55,7 +55,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: pip install -r requirements.txt
       - name: Migrate and seed against PostgreSQL
-        run: python -m app.flows.seed
+        run: python -m app.flows.seed --with-environments
 
   frontend:
     runs-on: ubuntu-latest

@@ -99,7 +99,8 @@ def seed_platform(db: Session, user: User | None = None) -> dict[str, Any]:
             i = SystemInstance(environment_id=e.id, system_id=s.id, instance_name=f"{s.id}-{env_name}",
                                url=f"https://{s.id.lower()}.{env_name.lower()}.example.internal", deployed_version=ver,
                                build=f"b{sum(map(ord, s.id + env_name)) % 900 + 100}" if ver else None, mode=mode,
-                               virtualisation_ref=ref, health_status=e.health_status,
+                               virtualisation_ref=ref,
+                               health_status="Down" if env_name == "PERF1" else ("Unknown" if mode != "real" else "Healthy"),
                                health_checked_at=t - timedelta(minutes=7),
                                last_verified=(t - timedelta(days=20 if env_name != "PERF1" else 140)).date(),
                                verified_by="Env Ops")

@@ -9,6 +9,7 @@
 import argparse
 from pathlib import Path
 
+import app.platform.common  # noqa: F401 - registers the audit hash-chain listener
 from app.auth import User
 from app.database import SessionLocal
 from app.flows.excel import build_workbook
