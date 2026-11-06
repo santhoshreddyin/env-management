@@ -1,0 +1,117 @@
+name: Deploy
+
+# qa   branch -> GitHub environment "qa"         (Supabase QA, Render QA, Cloudflare Pages preview "qa")
+# main branch -> GitHub environment "production" (Supabase prod, Render prod, Cloudflare Pages production)
+on:
+  push:
+    branches: [qa, main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false # never interrupt a deploy / migration midway
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+    steps:
+      - id: env
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            main) echo "environment=production" >> "$GITHUB_OUTPUT" ;;
+            qa)   echo "environment=qa"         >> "$GITHUB_OUTPUT" ;;
+            *)    echo "::error::Deploys run only from qa or main (got ${GITHUB_REF_NAME})"; exit 1 ;;
+          esac
+
+  migrate:
+    name: Migrate database (Supabase)
+    needs: [ci, setup]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.setup.outputs.environment }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r requirements.txt
+      - name: alembic upgrade head
+        env:
+          # Use the Supabase *session* pooler (port 5432) or direct connection for migrations.
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then echo "::error::SUPABASE_DB_URL secret is not set"; exit 1; fi
+          alembic upgrade head
+          alembic current
+
+  backend:
+    name: Deploy backend (Render)
+    needs: [setup, migrate]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.setup.outputs.environment }}
+      url: ${{ vars.BACKEND_URL }}/docs
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"; exit 1; fi
+          curl -fsS -X POST "$HOOK"
+      - name: Wait until Render serves this commit
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          if [ -z "$BACKEND_URL" ]; then echo "::error::BACKEND_URL variable is not set"; exit 1; fi
+          for i in $(seq 1 60); do
+            body=$(curl -fsS --max-time 30 "$BACKEND_URL/api/health" || true)
+            commit=$(echo "$body" | jq -r '.commit // empty' 2>/dev/null || true)
+            echo "attempt $i: ${body:-<no response>}"
+            if [ "$commit" = "$GITHUB_SHA" ]; then echo "Backend is live on $GITHUB_SHA"; exit 0; fi
+            sleep 20
+          done
+          echo "::error::Render did not serve commit $GITHUB_SHA within 20 minutes"
+          exit 1
+
+  frontend:
+    name: Deploy frontend (Cloudflare Pages)
+    needs: [setup, backend]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.setup.outputs.environment }}
+      url: ${{ vars.FRONTEND_URL }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Build
+        env:
+          VITE_API_BASE_URL: ${{ vars.BACKEND_URL }}/api
+        run: npm run build
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: frontend
+          # Pages production branch must be "main"; "qa" becomes the qa.<project>.pages.dev alias.
+          command: pages deploy dist --project-name=${{ vars.CLOUDFLARE_PROJECT_NAME }} --branch=${{ github.ref_name }} --commit-hash=${{ github.sha }}
