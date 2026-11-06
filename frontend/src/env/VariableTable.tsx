@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client.js';
-import VariableRow from './VariableRow.jsx';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { envApi, type Environment, type Variable, type VariableInput } from '../api/env';
+import VariableRow from './VariableRow';
 
-const EMPTY = { key: '', value: '', is_secret: false };
+const EMPTY: VariableInput = { key: '', value: '', is_secret: false };
 
-export default function VariableTable({ environment, onChange, onError }) {
-  const [variables, setVariables] = useState([]);
-  const [draft, setDraft] = useState(EMPTY);
+interface Props {
+  environment: Environment;
+  onChange: () => Promise<void>;
+  onError: (msg: string) => void;
+}
+
+export default function VariableTable({ environment, onChange, onError }: Props) {
+  const [variables, setVariables] = useState<Variable[]>([]);
+  const [draft, setDraft] = useState<VariableInput>(EMPTY);
 
   const load = useCallback(async () => {
     try {
-      setVariables(await api.listVariables(environment.id));
+      setVariables(await envApi.listVariables(environment.id));
     } catch (err) {
-      onError(err.message);
+      onError((err as Error).message);
     }
   }, [environment.id, onError]);
 
@@ -25,14 +31,14 @@ export default function VariableTable({ environment, onChange, onError }) {
     await onChange();
   }
 
-  async function handleAdd(e) {
+  async function handleAdd(e: FormEvent) {
     e.preventDefault();
     try {
-      await api.createVariable(environment.id, draft);
+      await envApi.createVariable(environment.id, draft);
       setDraft(EMPTY);
       await refresh();
     } catch (err) {
-      onError(err.message);
+      onError((err as Error).message);
     }
   }
 
@@ -43,7 +49,7 @@ export default function VariableTable({ environment, onChange, onError }) {
           <h2>{environment.name}</h2>
           {environment.description && <p className="muted">{environment.description}</p>}
         </div>
-        <a className="button secondary" href={api.exportUrl(environment.id)}>
+        <a className="button secondary" href={envApi.exportUrl(environment.id)}>
           Export .env
         </a>
       </div>
@@ -59,13 +65,7 @@ export default function VariableTable({ environment, onChange, onError }) {
         </thead>
         <tbody>
           {variables.map((v) => (
-            <VariableRow
-              key={v.id}
-              envId={environment.id}
-              variable={v}
-              onChange={refresh}
-              onError={onError}
-            />
+            <VariableRow key={v.id} envId={environment.id} variable={v} onChange={refresh} onError={onError} />
           ))}
           {variables.length === 0 && (
             <tr>
@@ -78,24 +78,16 @@ export default function VariableTable({ environment, onChange, onError }) {
       </table>
 
       <form onSubmit={handleAdd} className="inline-form add-var">
-        <input
-          value={draft.key}
-          onChange={(e) => setDraft({ ...draft, key: e.target.value })}
-          placeholder="KEY"
-          required
-        />
+        <input value={draft.key} onChange={(e) => setDraft({ ...draft, key: e.target.value })} placeholder="KEY" aria-label="Key" required />
         <input
           value={draft.value}
           onChange={(e) => setDraft({ ...draft, value: e.target.value })}
           placeholder="value"
+          aria-label="Value"
           type={draft.is_secret ? 'password' : 'text'}
         />
         <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={draft.is_secret}
-            onChange={(e) => setDraft({ ...draft, is_secret: e.target.checked })}
-          />
+          <input type="checkbox" checked={draft.is_secret} onChange={(e) => setDraft({ ...draft, is_secret: e.target.checked })} />
           Secret
         </label>
         <button type="submit">Add variable</button>

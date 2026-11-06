@@ -1,58 +1,94 @@
-:root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --border: #e2e5ea;
-  --text: #1f2933;
-  --muted: #6b7280;
-  --primary: #2563eb;
-  --danger: #dc2626;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: var(--text);
-  background: var(--bg);
+@import '@xyflow/react/dist/style.css';
+
+body {
+  background: #f1f5f9;
 }
 
-* { box-sizing: border-box; }
-body { margin: 0; }
-h1, h2 { margin: 0; }
-h2 { font-size: 1.1rem; }
+/* System nodes on the architecture diagram */
+.system-node {
+  box-sizing: border-box;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: opacity 150ms;
+  cursor: pointer;
+}
+.system-node__name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.system-node__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+  color: #334155;
+}
+.system-node__role {
+  font-weight: 700;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+}
+.system-node__role--downstream {
+  background: #fff;
+  color: #0f172a;
+  border: 1.5px solid #0f172a;
+}
+.system-node .react-flow__handle {
+  opacity: 0;
+  width: 4px;
+  height: 4px;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  pointer-events: none;
+}
+.react-flow__node:focus-visible .system-node {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
 
-.app-header { padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
-.app-header h1 { font-size: 1.25rem; }
+/* Layer bands (FR-9) */
+.layer-band {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: rgba(241, 245, 249, 0.85);
+  border: 1px dashed #cbd5e1;
+  pointer-events: none;
+}
+.layer-band__label {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+}
+.react-flow__node-band {
+  pointer-events: none !important;
+}
 
-.layout { display: flex; min-height: calc(100vh - 56px); }
-.sidebar { width: 260px; padding: 20px; background: var(--surface); border-right: 1px solid var(--border); }
-.content { flex: 1; padding: 24px; overflow-x: auto; }
-
-.env-list { list-style: none; padding: 0; margin: 12px 0; }
-.env-list li { display: flex; align-items: center; border-radius: 6px; }
-.env-list li.active { background: #e8efff; }
-.env-item { flex: 1; display: flex; justify-content: space-between; background: none; color: var(--text); text-align: left; }
-.badge { background: var(--border); border-radius: 10px; padding: 0 8px; font-size: 0.8rem; }
-
-.section-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-
-.var-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); }
-.var-table th, .var-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
-.var-table th { font-size: 0.8rem; text-transform: uppercase; color: var(--muted); }
-.actions { white-space: nowrap; text-align: right; }
-.actions button { margin-left: 6px; }
-
-.inline-form { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-.inline-form input:not([type='checkbox']) { flex: 1; min-width: 120px; }
-.checkbox { display: flex; align-items: center; gap: 4px; }
-
-input { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
-button, .button { padding: 6px 12px; border: none; border-radius: 6px; background: var(--primary); color: #fff; cursor: pointer; font: inherit; text-decoration: none; }
-button.secondary, .button.secondary { background: var(--border); color: var(--text); }
-button.danger { background: var(--danger); }
-button.link { background: none; color: var(--primary); padding: 0; }
-.icon-btn { background: none; color: var(--muted); font-size: 1.1rem; }
-
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.muted { color: var(--muted); }
-.alert { margin: 12px 24px 0; padding: 10px 14px; background: #fee2e2; color: #991b1b; border-radius: 6px; }
-
-@media (max-width: 720px) {
-  .layout { flex-direction: column; }
-  .sidebar { width: auto; border-right: none; border-bottom: 1px solid var(--border); }
+/* Hop labels on the selected path (FR-5) */
+.path-edge-label {
+  position: absolute;
+  background: #fff;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: all;
+  cursor: pointer;
+}
+.react-flow__edgelabel-renderer {
+  z-index: 1000;
 }

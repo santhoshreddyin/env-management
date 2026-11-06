@@ -1,28 +1,35 @@
 import { useState } from 'react';
-import { api } from '../api/client.js';
+import { envApi, type Variable } from '../api/env';
 
-export default function VariableRow({ envId, variable, onChange, onError }) {
+interface Props {
+  envId: number;
+  variable: Variable;
+  onChange: () => Promise<void>;
+  onError: (msg: string) => void;
+}
+
+export default function VariableRow({ envId, variable, onChange, onError }: Props) {
   const [editing, setEditing] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [value, setValue] = useState(variable.value);
 
   async function save() {
     try {
-      await api.updateVariable(envId, variable.id, { value });
+      await envApi.updateVariable(envId, variable.id, { value });
       setEditing(false);
       await onChange();
     } catch (err) {
-      onError(err.message);
+      onError((err as Error).message);
     }
   }
 
   async function remove() {
     if (!window.confirm(`Delete ${variable.key}?`)) return;
     try {
-      await api.deleteVariable(envId, variable.id);
+      await envApi.deleteVariable(envId, variable.id);
       await onChange();
     } catch (err) {
-      onError(err.message);
+      onError((err as Error).message);
     }
   }
 
@@ -32,13 +39,7 @@ export default function VariableRow({ envId, variable, onChange, onError }) {
     <tr>
       <td className="mono">{variable.key}</td>
       <td className="mono">
-        {editing ? (
-          <input value={value} onChange={(e) => setValue(e.target.value)} autoFocus />
-        ) : masked ? (
-          '••••••••'
-        ) : (
-          variable.value
-        )}
+        {editing ? <input value={value} onChange={(e) => setValue(e.target.value)} autoFocus aria-label="Value" /> : masked ? '••••••••' : variable.value}
       </td>
       <td>
         {variable.is_secret && (

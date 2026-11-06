@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import require_maintainer
 from app.database import get_db
 from app.models import Environment
 from app.schemas import EnvironmentCreate, EnvironmentRead, EnvironmentUpdate
@@ -32,7 +33,7 @@ def list_environments(db: Session = Depends(get_db)):
     return [_to_read(e) for e in envs]
 
 
-@router.post("", response_model=EnvironmentRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=EnvironmentRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_maintainer)])
 def create_environment(payload: EnvironmentCreate, db: Session = Depends(get_db)):
     _ensure_unique_name(db, payload.name)
     env = Environment(**payload.model_dump())
@@ -47,7 +48,7 @@ def get_environment(env_id: int, db: Session = Depends(get_db)):
     return _to_read(get_environment_or_404(env_id, db))
 
 
-@router.patch("/{env_id}", response_model=EnvironmentRead)
+@router.patch("/{env_id}", response_model=EnvironmentRead, dependencies=[Depends(require_maintainer)])
 def update_environment(env_id: int, payload: EnvironmentUpdate, db: Session = Depends(get_db)):
     env = get_environment_or_404(env_id, db)
     data = payload.model_dump(exclude_unset=True)
@@ -60,7 +61,7 @@ def update_environment(env_id: int, payload: EnvironmentUpdate, db: Session = De
     return _to_read(env)
 
 
-@router.delete("/{env_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{env_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_maintainer)])
 def delete_environment(env_id: int, db: Session = Depends(get_db)):
     env = get_environment_or_404(env_id, db)
     db.delete(env)

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import require_maintainer
 from app.database import get_db
 from app.models import Variable
 from app.routers.environments import get_environment_or_404
@@ -28,7 +29,7 @@ def list_variables(env_id: int, db: Session = Depends(get_db)):
     return get_environment_or_404(env_id, db).variables
 
 
-@router.post("", response_model=VariableRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=VariableRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_maintainer)])
 def create_variable(env_id: int, payload: VariableCreate, db: Session = Depends(get_db)):
     get_environment_or_404(env_id, db)
     _ensure_unique_key(db, env_id, payload.key)
@@ -39,7 +40,7 @@ def create_variable(env_id: int, payload: VariableCreate, db: Session = Depends(
     return var
 
 
-@router.patch("/{var_id}", response_model=VariableRead)
+@router.patch("/{var_id}", response_model=VariableRead, dependencies=[Depends(require_maintainer)])
 def update_variable(env_id: int, var_id: int, payload: VariableUpdate, db: Session = Depends(get_db)):
     var = _get_variable_or_404(env_id, var_id, db)
     data = payload.model_dump(exclude_unset=True)
@@ -52,7 +53,7 @@ def update_variable(env_id: int, var_id: int, payload: VariableUpdate, db: Sessi
     return var
 
 
-@router.delete("/{var_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{var_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_maintainer)])
 def delete_variable(env_id: int, var_id: int, db: Session = Depends(get_db)):
     var = _get_variable_or_404(env_id, var_id, db)
     db.delete(var)

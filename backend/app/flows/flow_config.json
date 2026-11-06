@@ -1,0 +1,34 @@
+{
+  "layers": [
+    { "id": "channels", "label": "Channels" },
+    { "id": "api_gateway", "label": "API Gateway" },
+    { "id": "integration", "label": "Integration / Gateway Tier" },
+    { "id": "messaging", "label": "Messaging" },
+    { "id": "core", "label": "Core Systems" }
+  ],
+  "type_layers": {
+    "upstream": "channels",
+    "gateway": "api_gateway",
+    "queue_manager": "messaging",
+    "mainframe": "core",
+    "downstream": "core"
+  },
+  "protocols": {
+    "REST": { "label": "REST", "color": "#1d4ed8", "dash": null },
+    "SOAP": { "label": "SOAP", "color": "#7e22ce", "dash": "10 5" },
+    "MQ": { "label": "MQ", "color": "#c2410c", "dash": "2 5" },
+    "FILE": { "label": "File", "color": "#047857", "dash": "12 4 2 4" },
+    "MFT": { "label": "MFT", "color": "#92400e", "dash": "14 4 2 4 2 4" }
+  },
+  "directions": {
+    "request": { "label": "Request", "stroke_width": 2.5, "marker": "arrowclosed" },
+    "reply": { "label": "Reply", "stroke_width": 1.5, "marker": "arrow" }
+  },
+  "system_types": {
+    "upstream": { "label": "Upstream", "color": "#e0f2fe" },
+    "gateway": { "label": "Gateway", "color": "#ede9fe" },
+    "queue_manager": { "label": "Queue manager", "color": "#ffedd5" },
+    "mainframe": { "label": "Mainframe", "color": "#e5e7eb" },
+    "downstream": { "label": "Downstream", "color": "#dcfce7" }
+  }
+}

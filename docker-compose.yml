@@ -1,0 +1,36 @@
+# Local / pilot stack: PostgreSQL + FastAPI backend + React UI served by nginx.
+#   docker compose up --build        -> http://localhost:8080
+#   docker compose exec backend python -m app.flows.seed   (optional sample data)
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: envmgmt
+      POSTGRES_PASSWORD: envmgmt
+      POSTGRES_DB: envmgmt
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U envmgmt"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://envmgmt:envmgmt@db:5432/envmgmt
+      CORS_ORIGINS: '["http://localhost:8080"]'
+      AUTH_MODE: ${AUTH_MODE:-dev}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

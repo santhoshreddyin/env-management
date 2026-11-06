@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from './api/client.js';
-import EnvironmentSidebar from './components/EnvironmentSidebar.jsx';
-import VariableTable from './components/VariableTable.jsx';
+import { envApi, type Environment } from '../api/env';
+import EnvironmentSidebar from './EnvironmentSidebar';
+import VariableTable from './VariableTable';
+import './env.css';
 
-export default function App() {
-  const [environments, setEnvironments] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
+export default function EnvironmentsPage() {
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   const loadEnvironments = useCallback(async () => {
     try {
-      const envs = await api.listEnvironments();
+      const envs = await envApi.listEnvironments();
       setEnvironments(envs);
-      setSelectedId((cur) => (envs.some((e) => e.id === cur) ? cur : envs[0]?.id ?? null));
+      setSelectedId((cur) => (envs.some((e) => e.id === cur) ? cur : (envs[0]?.id ?? null)));
       setError('');
     } catch (e) {
-      setError(`Could not load environments: ${e.message}`);
+      setError(`Could not load environments: ${(e as Error).message}`);
     }
   }, []);
 
@@ -23,13 +24,10 @@ export default function App() {
     loadEnvironments();
   }, [loadEnvironments]);
 
-  const selected = environments.find((e) => e.id === selectedId) || null;
+  const selected = environments.find((e) => e.id === selectedId) ?? null;
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Env Management</h1>
-      </header>
+    <div className="env-page">
       {error && <div className="alert">{error}</div>}
       <div className="layout">
         <EnvironmentSidebar
