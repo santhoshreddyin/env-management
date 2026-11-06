@@ -37,7 +37,7 @@ feature/* ──PR──▶ qa ──PR──▶ main
 
 Tables are created by Alembic (`backend/migrations/versions`) in the pipeline, not on app startup
 (`RUN_MIGRATIONS=false` in deployed environments). To load the sample dataset into a Supabase
-database once: `cd backend && DATABASE_URL=<session pooler URL> python -m app.flows.seed`.
+database once: `cd backend && DATABASE_URL=<session pooler URL> python -m app.flows.seed` (add `--with-environments` for the demo environment inventory; leave it off for real data — an empty inventory shows first-run guidance instead).
 
 ### 2. Render
 

@@ -1,10 +1,24 @@
 # Env Management
 
-Two tools in one app:
+The system of record for an enterprise's non-production environments: what exists, what is deployed, who has
+it, and whether it is healthy.
 
-- **Integration Flow Explorer**: pick an upstream and a downstream system and see the integration path
-  between them (hops, gateways, protocols, queues) highlighted on a layered architecture diagram.
-- **Environments**: manage environments (dev, staging, prod…) and their configuration variables.
+- **Environment inventory**: type, tier, ownership, lifecycle, hosting, hierarchy, tags, custom attributes, cost.
+- **Topology**: the systems and integrations in each environment (real, virtualised, stubbed…), shared
+  components, journeys, comparison between environments and impact analysis. Built on the
+  **Integration Flow Explorer** catalogue (pick an upstream and a downstream system and see the path).
+- **Deployments and versions**: history per system instance, CI/CD ingestion, version matrix, drift, promotion paths.
+- **Bookings**: whole environments or components, conflict detection (including shared components), approvals,
+  waitlist, recurring bookings, automatic release, freeze calendar.
+- **Configuration**: variables at global / environment / instance scope with inheritance, history and restore,
+  comparison, templates, import/export, vault references for secrets, pipeline access.
+- **Health, issues and test data**: checks and monitoring ingestion, availability metrics, known issues and
+  ticket sync, test data sets and refresh/masking jobs.
+- **Reporting and governance**: dashboard, utilisation, contention, readiness, cost, data quality; scoped roles,
+  API tokens, tamper-evident audit, bulk rollback, approvals, webhooks (Slack/Teams), chat commands, iCal feed.
+
+[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) maps every requirement (ENV-01 … GOV-09, NFR-*) to where it is
+built and states what is not built yet.
 
 | Layer | Stack |
 | ----- | ----- |
@@ -22,7 +36,7 @@ Two tools in one app:
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m app.flows.seed            # create tables + load the sample dataset (optional)
+python -m app.flows.seed --with-environments   # create tables + load the sample catalogue and demo environments
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -38,8 +52,74 @@ With Docker (PostgreSQL + backend + nginx-served UI on http://localhost:8080):
 
 ```bash
 docker compose up --build
-docker compose exec backend python -m app.flows.seed
+docker compose exec backend python -m app.flows.seed --with-environments
 ```
+
+## Environment management platform
+
+### Pages
+
+| Page | What it is for |
+| ---- | -------------- |
+| Dashboard | Status of every environment, availability, utilisation, open issues, approvals, upcoming changes |
+| Environments | Inventory with filters, saved views, import/export; each environment has tabs for overview and lifecycle, topology, deployments, configuration, bookings, issues, test data, health and readiness |
+| Bookings | Timeline by environment / project / team, conflict check, approvals, waitlist |
+| Calendar | Freezes, planned changes, releases, outages, refreshes, bookings, deployments; iCal subscription |
+| Releases | Version matrix, drift against a baseline, promotion paths and gates, deployment log |
+| Issues | Issue and incident register, known issues, ticket links |
+| Config | Compare environments, global defaults, templates, pipeline access |
+| Reports | Utilisation, contention and forecast, cost, data quality, test impact |
+| Catalogue | System catalogue, shared components, impact analysis |
+| Admin | Roles, API tokens, webhooks, settings and policies, audit log, bulk operations, approvals, notifications |
+
+### Data model (additions)
+
+| Entity | Purpose |
+| ------ | ------- |
+| Environment | Classification, ownership, lifecycle, hosting, hierarchy, tags/attributes, cost, health, data flags, `row_version` |
+| SystemInstance | A catalogue system in an environment: URL, version/build/commit, mode, verification, health; can be shared with other environments |
+| EnvironmentIntegration | An integration between instances in one environment (linked to the catalogue integration and its hops) |
+| Deployment, PromotionPath | Deployment history; ordered stages with gates |
+| Booking, CalendarEvent | Bookings of environments or instances; freezes, changes, outages, refreshes |
+| Variable, VariableHistory, ConfigTemplateKey | Scoped configuration with metadata and vault references; history; required keys per type |
+| Issue, TestDataSet, DataJob, HealthResult | Issues/incidents, test data and jobs, health results |
+| RoleAssignment, ApiToken, AppSetting, SavedView, BulkOperation, ApprovalRequest, Notification, Subscription, Webhook | Governance and notifications |
+
+System and integration catalogue rows are replaced as a whole on every flow import or edit, so environment
+tables refer to them by id without foreign keys.
+
+### Roles
+
+`viewer` < `booker` (book, log issues, request environments) < `contributor` (topology, deployments,
+configuration, health, test data) < `env_manager` (environments, approvals, freezes, templates, secrets export,
+audit) < `admin` (roles, tokens, webhooks, settings). The existing `maintainer` role equals `admin`.
+
+Roles come from SSO groups (`ADMIN_GROUPS`, `ENV_MANAGER_GROUPS`, `CONTRIBUTOR_GROUPS`, `BOOKER_GROUPS`,
+`MAINTAINER_GROUPS`, `VIEWER_GROUPS`) and from Admin → Roles, where a role can be granted to a user or
+`group:<name>` for everything or for one environment, programme, region or family. With
+`PORTFOLIO_SEGREGATION=true` users only see environments in their scoped grants.
+
+### Pipelines and integrations
+
+Create a token in Admin → API tokens, then:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "$URL/api/v1/config/SIT2?format=env"          # effective config (CFG-09)
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  "$URL/api/v1/ci/deployments" -d '{"environment":"SIT2","system":"BILLING","version":"2.6.0"}'  # DEP-03
+```
+
+Other endpoints: `/api/health/events` and `/api/health/alertmanager` (monitoring), `/api/tickets/webhook`
+(ServiceNow / Jira / Azure DevOps status sync), `/api/cmdb/export` and `/api/cmdb/sync`, `/api/discovery/ingest`,
+`/api/chatops/command` (Slack / Teams), `/api/calendar.ics`, `/api/metrics` (Prometheus). Outbound webhooks are set
+up in Admin → Webhooks. Calendar feeds and chat commands also accept `?api_token=` because those clients cannot
+send headers.
+
+### Background jobs
+
+With `SCHEDULER_ENABLED=true` (default) the API runs a job every `SCHEDULER_INTERVAL_SECONDS` that starts and
+releases bookings, escalates undecided requests, sends expiry, SLA-breach and secret-rotation alerts and runs
+configured health checks. Run only one API instance with the scheduler on.
 
 ## Integration Flow Explorer
 
@@ -121,8 +201,8 @@ Measured with 300 systems / 400 integrations / 2,000 hops:
 
 ## Security and roles
 
-- **Roles:** *viewer* (explore, export, view history) and *maintainer* (import, edit, roll back, audit log,
-  change environments).
+- **Roles:** see [Roles](#roles). For the Flow Explorer, *viewer* can explore, export and view history, and
+  *maintainer* (= admin) can import, edit, roll back and read the audit log.
 - **`AUTH_MODE=dev`** (default) runs every request as `DEV_USER` with `DEV_ROLES`. For local use only.
 - **`AUTH_MODE=header`** is for SSO. Put the app behind your platform gateway or an auth proxy such as
   oauth2-proxy (OIDC or SAML). It forwards the user and groups in `X-Forwarded-User` / `X-Forwarded-Groups`.
@@ -137,7 +217,7 @@ See `backend/.env.example` for all settings.
 ## Tests
 
 ```bash
-cd backend && pytest                                     # API, validation, import/export, rollback, roles, perf
+cd backend && pytest                                     # API, validation, import/export, rollback, roles, platform, perf
 cd frontend && npm run typecheck && npx playwright test  # e2e: starts a seeded backend + Vite on ports 8001/5174
 ```
 
@@ -150,15 +230,16 @@ Playwright. Pushes to `qa` / `main` run the same checks and then deploy (`.githu
    Export → edit in Excel → re-import is a supported round trip, so either can be the master.
 2. **Authoritative sequence diagrams:** not available yet. Each integration has `verified_by` /
    `last_verified`; the UI flags flows that were never verified or were verified more than 12 months ago.
-3. **Environments:** one dataset per deployment, with `environment` recorded on each system. Separate SIT/UAT/PROD
-   datasets would need a dataset dimension (not built).
+3. **Environments:** the catalogue (systems, integrations, hops) is environment-neutral; each environment maps
+   catalogue systems onto system instances and integrations (Environments → Topology).
 4. **Hosting:** internal only; Docker images plus SSO via the existing gateway.
 5. **DataPower tiers and MQ hub:** modelled as distinct nodes (type `gateway` / `queue_manager`) so hops can pass
    through them. Tier details live in component details, and the `layer` column places each tier in the right
    band.
 
-## Environments (variables)
+## Secrets
 
-Environments hold key/value variables; secret values are masked in the UI and can be exported as `.env`.
-Note that values are stored in plain text, so this part is not suitable for production credentials until
-encryption at rest is added.
+Secret variables are masked everywhere and excluded from exports by default; revealing a value is a separate,
+audited call. Prefer storing a **vault reference** (`vault_ref`, e.g. `kv://my-vault/db-password`): the value is
+then not stored at all and pipelines receive `vault:<ref>`. Plain secret values are still accepted for existing
+data and are listed as errors in the data quality report; the database does not encrypt them at rest.

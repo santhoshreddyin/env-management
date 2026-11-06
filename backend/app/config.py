@@ -40,6 +40,29 @@ class Settings(BaseSettings):
     # Groups (from the groups header) mapped to roles. Empty viewer_groups = any authenticated user can view.
     maintainer_groups: list[str] = ["integration-maintainers"]
     viewer_groups: list[str] = []
+    admin_groups: list[str] = []
+    env_manager_groups: list[str] = []
+    contributor_groups: list[str] = []
+    booker_groups: list[str] = []
+    # GOV-06: users see only environments in their scoped role assignments (admins see all).
+    portfolio_segregation: bool = False
+
+    # --- Platform -------------------------------------------------------------
+    # Background scheduler: booking auto-release, expiry/SLA notifications, scheduled health checks.
+    scheduler_enabled: bool = True
+    scheduler_interval_seconds: int = 300
+    health_check_timeout_seconds: float = 5.0
+    health_degraded_ms: float = 2000.0
+    # Deliver webhooks (Slack, Teams, generic) in a background thread.
+    webhooks_enabled: bool = True
+    # Optional SMTP for e-mail notifications (BKG-09, HLT-06).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "env-management@localhost"
+    # Days after which a system instance / integration verification is stale (TOP-09).
+    stale_after_days: int = 90
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

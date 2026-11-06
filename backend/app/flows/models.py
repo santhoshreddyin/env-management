@@ -101,3 +101,6 @@ class AuditLog(Base):
     entity_type: Mapped[str | None] = mapped_column(String(50))
     entity_id: Mapped[str | None] = mapped_column(String(200))
     details: Mapped[str | None] = mapped_column(Text)  # JSON
+    # GOV-02 tamper evidence: each row hashes its content plus the previous row's hash.
+    prev_hash: Mapped[str | None] = mapped_column(String(64))
+    hash: Mapped[str | None] = mapped_column(String(64))
